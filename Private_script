@@ -15,7 +15,7 @@ local LockPosition = CFrame.new(-31.8626, 6.0588, 2087.8867)
 local Whitelist = {
     "shhhh_892",
     "JJJoshligas",
-    "david2937471"
+    "david2937471",
     "Larry028372"
 }
 
