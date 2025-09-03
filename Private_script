@@ -11,7 +11,7 @@ local autoSizeLoop
 local serverHopLoop
 local LockPosition = CFrame.new(-31.8626, 6.0588, 2087.8867)
 
--- Whitelist usernames (players you want to avoid)
+-- // Whitelist usernames (players you want to avoid)
 local Whitelist = {
     "shhhh_892",
     "JJJoshligas",
@@ -23,22 +23,20 @@ local Whitelist = {
 local function EquipPunch()
     local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
     if tool then
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum:EquipTool(tool)
-        end
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):EquipTool(tool)
     end
 end
 
 local function DoPunch()
     local char = LocalPlayer.Character
-    local punch = (char and char:FindFirstChild("Punch")) or LocalPlayer.Backpack:FindFirstChild("Punch")
+    if not char then return end
+    local punch = LocalPlayer.Backpack:FindFirstChild("Punch") or char:FindFirstChild("Punch")
     if punch then
         if punch:FindFirstChild("attackTime") then
             punch.attackTime.Value = 0.001
         end
-        for i = 1, 5 do
-            pcall(function() punch:Activate() end)
+        for i = 1, 5 do 
+            pcall(function() punch:Activate() end) 
         end
     end
 end
@@ -47,44 +45,36 @@ local function AutoKillLoop(lockPosition)
     task.spawn(function()
         while AutoKillEnabled do
             local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-            -- If alive: lock position + punch
-            if char and hum and hum.Health > 0 and hrp then
+            if char and char:FindFirstChild("HumanoidRootPart") then
                 if lockPosition then
-                    hrp.CFrame = lockPosition
+                    char.HumanoidRootPart.CFrame = lockPosition
                 end
                 EquipPunch()
                 DoPunch()
-            else
-                -- Dead: still punch from Backpack
-                DoPunch()
-            end
 
-            -- Always try to damage other players
-            local rHand = char and char:FindFirstChild("RightHand")
-            local lHand = char and char:FindFirstChild("LeftHand")
+                local rHand = char:FindFirstChild("RightHand")
+                local lHand = char:FindFirstChild("LeftHand")
 
-            for _, target in ipairs(Players:GetPlayers()) do
-                if target ~= LocalPlayer and target.Character then
-                    if not table.find(Whitelist, target.Name) then
-                        local root = target.Character:FindFirstChild("HumanoidRootPart")
-                        if root then
-                            if rHand then
-                                firetouchinterest(rHand, root, 1)
-                                firetouchinterest(rHand, root, 0)
-                            end
-                            if lHand then
-                                firetouchinterest(lHand, root, 1)
-                                firetouchinterest(lHand, root, 0)
+                if rHand and lHand then
+                    for _, target in ipairs(Players:GetPlayers()) do
+                        if target ~= LocalPlayer and target.Character then
+                            -- skip friends
+                            if not pcall(function()
+                                return LocalPlayer:IsFriendsWith(target.UserId)
+                            end) or not LocalPlayer:IsFriendsWith(target.UserId) then
+                                local root = target.Character:FindFirstChild("HumanoidRootPart")
+                                if root then
+                                    firetouchinterest(rHand, root, 1)
+                                    firetouchinterest(lHand, root, 1)
+                                    firetouchinterest(rHand, root, 0)
+                                    firetouchinterest(lHand, root, 0)
+                                end
                             end
                         end
                     end
                 end
             end
-
-            task.wait(0.05)
+            task.wait(0.01)
         end
     end)
 end
@@ -108,7 +98,7 @@ local function StopAutoSizeNaN()
     end
 end
 
--- Server hop function
+-- // Server hop function
 local function HopServer()
     AutoKillEnabled = false -- stop killing before hop
     pcall(function()
@@ -116,23 +106,23 @@ local function HopServer()
         local cursor = ""
         local gameId = 3623096087
 
-        repeat
+        repeat  
             local response = game:HttpGet(
                 "https://games.roblox.com/v1/games/"..gameId.."/servers/Public?sortOrder=Asc&limit=100"..(cursor ~= "" and "&cursor="..cursor or "")
-            )
-            local data = HttpService:JSONDecode(response)
-            for _, server in ipairs(data.data) do
-                if server.playing >= 15 and server.playing <= 20 and server.id ~= game.JobId then
-                    TeleportService:TeleportToPlaceInstance(gameId, server.id, LocalPlayer)
-                    return
-                end
-            end
-            cursor = data.nextPageCursor or ""
-        until cursor == "" or not cursor
+            )  
+            local data = HttpService:JSONDecode(response)  
+            for _, server in ipairs(data.data) do  
+                if server.playing >= 15 and server.playing <= 20 and server.id ~= game.JobId then  
+                    TeleportService:TeleportToPlaceInstance(gameId, server.id, LocalPlayer)  
+                    return  
+                end  
+            end  
+            cursor = data.nextPageCursor or ""  
+        until cursor == "" or not cursor  
     end)
 end
 
--- Server hop loop
+-- // Server hop loop
 local function StartServerHopLoop()
     if serverHopLoop then return end
     serverHopLoop = task.spawn(function()
@@ -150,7 +140,7 @@ local function StopServerHopLoop()
     end
 end
 
--- Check whitelist players joining
+-- // Check whitelist players joining
 Players.PlayerAdded:Connect(function(player)
     if table.find(Whitelist, player.Name) then
         print("[WHITELIST DETECTED] "..player.Name.." joined. Hopping server...")
@@ -158,7 +148,7 @@ Players.PlayerAdded:Connect(function(player)
     end
 end)
 
--- Also check already in server
+-- // Also check already in server
 for _, player in ipairs(Players:GetPlayers()) do
     if table.find(Whitelist, player.Name) then
         print("[WHITELIST DETECTED] "..player.Name.." already in server. Hopping...")
@@ -166,7 +156,23 @@ for _, player in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Auto start as soon as executed
+-- // Restart AutoKill on respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart")
+    print("[INFO] Character respawned, restarting AutoKill...")
+
+    task.delay(1, function()
+        if AutoKillEnabled then
+            EquipPunch()
+        end
+    end)
+
+    if AutoKillEnabled then
+        AutoKillLoop(LockPosition)
+    end
+end)
+
+-- // Auto start as soon as executed
 AutoKillLoop(LockPosition)
 StartAutoSizeNaN()
 StartServerHopLoop()
