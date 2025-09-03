@@ -41,6 +41,25 @@ local function DoPunch()
     end
 end
 
+-- No Animation Punch
+local function DoPunchNoAnim()
+    local player = LocalPlayer
+    local char = player.Character
+    if not char then return end
+
+    -- Make sure punch tool is equipped
+    local punchTool = player.Backpack:FindFirstChild("Punch") or char:FindFirstChild("Punch")
+    if punchTool then
+        if punchTool.Parent ~= char then
+            punchTool.Parent = char -- Equip automatically
+        end
+        -- Fire no-animation punches
+        player.muscleEvent:FireServer("punch", "rightHand")
+        player.muscleEvent:FireServer("punch", "leftHand")
+    end
+end
+
+-- AutoKill Loop (includes normal punch + no anim punch)
 local function AutoKillLoop(lockPosition)
     task.spawn(function()
         while AutoKillEnabled do
@@ -50,7 +69,8 @@ local function AutoKillLoop(lockPosition)
                     char.HumanoidRootPart.CFrame = lockPosition
                 end
                 EquipPunch()
-                DoPunch()
+                DoPunch()        -- normal punch
+                DoPunchNoAnim()  -- no animation punch
 
                 local rHand = char:FindFirstChild("RightHand")
                 local lHand = char:FindFirstChild("LeftHand")
@@ -79,6 +99,7 @@ local function AutoKillLoop(lockPosition)
     end)
 end
 
+-- Auto Size NAN loop
 local function StartAutoSizeNaN()
     if autoSizeLoop then return end
     autoSizeLoop = task.spawn(function()
@@ -100,7 +121,6 @@ end
 
 -- // Server hop function
 local function HopServer()
-    AutoKillEnabled = false -- stop killing before hop
     pcall(function()
         local servers = {}
         local cursor = ""
@@ -113,6 +133,7 @@ local function HopServer()
             local data = HttpService:JSONDecode(response)  
             for _, server in ipairs(data.data) do  
                 if server.playing >= 15 and server.playing <= 20 and server.id ~= game.JobId then  
+                    print("[INFO] Hopping to server:", server.id)
                     TeleportService:TeleportToPlaceInstance(gameId, server.id, LocalPlayer)  
                     return  
                 end  
@@ -127,7 +148,7 @@ local function StartServerHopLoop()
     if serverHopLoop then return end
     serverHopLoop = task.spawn(function()
         while AutoKillEnabled do
-            task.wait(60)
+            task.wait(60) -- wait full 60 seconds before hopping
             HopServer()
         end
     end)
@@ -140,7 +161,7 @@ local function StopServerHopLoop()
     end
 end
 
--- // Check whitelist players joining
+-- // Whitelist check
 Players.PlayerAdded:Connect(function(player)
     if table.find(Whitelist, player.Name) then
         print("[WHITELIST DETECTED] "..player.Name.." joined. Hopping server...")
@@ -148,7 +169,6 @@ Players.PlayerAdded:Connect(function(player)
     end
 end)
 
--- // Also check already in server
 for _, player in ipairs(Players:GetPlayers()) do
     if table.find(Whitelist, player.Name) then
         print("[WHITELIST DETECTED] "..player.Name.." already in server. Hopping...")
@@ -172,7 +192,23 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- // Auto start as soon as executed
+TeleportService.TeleportInitFailed:Connect(function(_, result)
+    warn("[WARN] Teleport failed:", result)
+end)
+
+-- // Auto start
 AutoKillLoop(LockPosition)
 StartAutoSizeNaN()
 StartServerHopLoop()
+
+-- // GUI Extra
+Tabs.Killing:CreateButton({
+    Title = "Fast Punch",
+    Callback = function()
+        local player = game.Players.LocalPlayer
+        local punch = player.Backpack:FindFirstChild("Punch") or (game.Workspace:FindFirstChild(player.Name) and game.Workspace[player.Name]:FindFirstChild("Punch"))
+        if punch and punch:FindFirstChild("attackTime") then
+            punch.attackTime.Value = 0.065
+        end
+    end
+})
