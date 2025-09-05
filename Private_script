@@ -117,7 +117,7 @@ local function StartServerHopLoop()
 if serverHopLoop then return end
 serverHopLoop = task.spawn(function()
 while AutoKillEnabled do
-task.wait(60)
+task.wait(10)
 pcall(function()
 local servers = {}
 local cursor = ""
